@@ -28,18 +28,18 @@ until mysqladmin ping \
   --protocol=TCP \
   --connect-timeout 3 --silent ;
 do
-  echo "MySQL Master ($MASTER_HOST) is unavailable - sleeping"
+  echo "*** MySQL Master ($MASTER_HOST) is unavailable - sleeping"
   sleep 1
 done
 
-echo "MySQL Master ($MASTER_HOST) is available!"
+echo "*** MySQL Master ($MASTER_HOST) is available!"
 
 if [[ -n "${REPLICATION_START_DELAY}" ]] ; then
-  echo "Waiting $REPLICATION_START_DELAY s before starting replication"
+  echo "*** Waiting $REPLICATION_START_DELAY s before starting replication"
   sleep $REPLICATION_START_DELAY
 fi
 
-echo Updating master connetion info in slave.
+echo *** Updating master connetion info in slave.
 
 mysql -uroot -p$MYSQL_ROOT_PASSWORD -e "RESET MASTER; \
   CHANGE MASTER TO \
@@ -62,23 +62,23 @@ mysqldump \
   --flush-privileges \
   | mysql -uroot -p$MYSQL_ROOT_PASSWORD
 
-echo mysqldump completed.
+echo *** mysqldump completed.
 
-echo Starting slave ...
+echo *** Starting slave ...
 mysql -uroot -p$MYSQL_ROOT_PASSWORD -e "START SLAVE;"
 
 #echo Initial health check:
 #check_slave_health
 
 #echo Waiting for health grace period and slave to be still healthy:
-echo "Waiting for health grace period ($REPLICATION_HEALTH_GRACE_PERIOD seconds) and slave to be still healthy:"
+echo "*** Waiting for health grace period ($REPLICATION_HEALTH_GRACE_PERIOD seconds) and slave to be still healthy:"
 sleep $REPLICATION_HEALTH_GRACE_PERIOD
 
 counter=0
 while ! check_slave_health; do
   if (( counter >= $REPLICATION_HEALTH_TIMEOUT )); then
     # echo ERROR: Replication not healthy, health timeout reached, failing.
-    echo "ERROR: Replication not healthy, health timeout of $REPLICATION_HEALTH_TIMEOUT seconds reached, failing."
+    echo "*** ERROR: Replication not healthy, health timeout of $REPLICATION_HEALTH_TIMEOUT seconds reached, failing."
 	break
     exit 1
   fi
