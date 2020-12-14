@@ -1,0 +1,91 @@
+version: "3.7"
+
+services:
+  powerdns-admin:
+    image: hsrnetwork/powerdns-admin:latest
+    hostname: powerdns-admin
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    # To override the default config.py:
+    #volumes:
+      #- /path/to/configs/config.py:/powerdns-admin/config.py
+    environment:
+      SIGNUP_ENABLED: 'False'
+      ADMIN_USER: admin
+      ADMIN_USER_PASSWORD: 12345
+      SALT: $$2b$$12$$gmPOvn57H16qlj5kJtJlH.
+      SECRET_KEY: I0o3qqd2eQE859gPpVCGm4EYW4fJTVnGnX2dJZ9YIejq20SJ77tW
+      LOG_LEVEL: INFO
+      SQLA_DB_HOST: powerdns-admin-mysql
+      SLQA_DB_PORT: 33006
+      SQLA_DB_NAME: powerdns-admin
+      SQLA_DB_USER: powerdns-admin-svc-user
+      SQLA_DB_PASSWORD: powerdns-admin-svc-user-pw
+      PDNS_HOST: pdns-server
+      PDNS_API_KEY: changeme
+      PDNS_VERSION: 4.1.10
+    depends_on:
+      - powerdns-admin-mysql
+    healthcheck:
+      test: ["CMD","wget","--output-document=-","--quiet","--tries=1","http://127.0.0.1/"]
+      timeout: 10s
+      retries: 5
+
+  powerdns-admin-mysql:
+    image: mysql/mysql-server:5.7
+    hostname: powerdns-admin-db
+    restart: unless-stopped
+    # To persist the mysql data:
+    volumes:
+      - $PWD/data/mysql-pda:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: powerdns-admin
+      MYSQL_USER: powerdns-admin-svc-user
+      MYSQL_PASSWORD: powerdns-admin-svc-user-pw
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 10s
+      retries: 5
+
+  pdns-server:
+    image: psitrax/powerdns:v4.3.0
+    hostname: powerdns
+    restart: unless-stopped
+    ports:
+      - "53:53"
+      - "53:53/udp"
+    command: >
+      --api=yes
+      --api-key=changeme
+      --webserver-address=0.0.0.0
+      --webserver-allow-from=0.0.0.0/0
+    environment:
+      MYSQL_HOST: pdns-server-mysql
+      MYSQL_DB: powerdns
+      MYSQL_USER: powerdns-svc-user
+      MYSQL_PASS: powerdns-svc-user-pw
+    depends_on:
+      - pdns-server-mysql
+
+  pdns-server-mysql:
+    build: .
+    hostname: powerdns-db
+    restart: unless-stopped
+    # To persist the mysql data:
+    volumes:
+      - $PWD/data/mysql-pdns:/var/lib/mysql
+    ports:
+      - '3306:3306'
+    environment:
+      MYSQL_DATABASE: powerdns
+      MYSQL_USER: powerdns-svc-user
+      MYSQL_PASSWORD: powerdns-svc-user-pw
+      MYSQL_ROOT_PASSWORD: super_pw_root
+      REPLICATION_USER: replication_user
+      REPLICATION_PASSWORD: myreplpassword
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-psuper_pw_root"]
+      timeout: 10s
+      retries: 5

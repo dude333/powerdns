@@ -1,0 +1,44 @@
+version: "3.7"
+
+services:
+  pdns-server:
+    image: psitrax/powerdns:v4.3.0
+    hostname: powerdns
+    restart: unless-stopped
+    ports:
+      - "53:53"
+      - "53:53/udp"
+    command: >
+      --api=yes
+      --api-key=changeme
+      --webserver-address=0.0.0.0
+      --webserver-allow-from=0.0.0.0/0
+    environment:
+      MYSQL_HOST: pdns-server-mysql
+      MYSQL_DB: powerdns
+      MYSQL_USER: powerdns-svc-user
+      MYSQL_PASS: powerdns-svc-user-pw
+    depends_on:
+      - pdns-server-mysql
+
+  pdns-server-mysql:
+    build: .
+    hostname: powerdns-db-slave
+    restart: unless-stopped
+    # To persist the mysql data:
+    # volumes:
+    #   - $PWD/data/mysql-pdns:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: powerdns
+      MYSQL_USER: powerdns-svc-user
+      MYSQL_PASSWORD: powerdns-svc-user-pw
+      MYSQL_ROOT_PASSWORD: super_pw_root
+      REPLICATION_USER: replication_user
+      REPLICATION_PASSWORD: myreplpassword
+      MASTER_HOST: 192.168.0.55
+      MASTER_PORT: 3306
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-psuper_pw_root"]
+      timeout: 10s
+      retries: 5
